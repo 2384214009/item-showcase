@@ -161,17 +161,18 @@
 
         /* 购物车浮动按钮 */
         .cart-float{
-            position:fixed;bottom:24px;
+            position:fixed;bottom:84px;
             right:calc(50% - 260px + 16px);
             width:56px;height:56px;border-radius:50%;
             background:linear-gradient(135deg,var(--primary),var(--primary-dark));
             color:#fff;display:flex;align-items:center;justify-content:center;
             font-size:24px;box-shadow:var(--shadow-lg);
-            z-index:50;cursor:pointer;transition:all 0.25s;
-            border:none;
+            z-index:50;cursor:grab;transition:transform 0.15s, box-shadow 0.25s;
+            border:none;touch-action:none;user-select:none;-webkit-user-select:none;
         }
         .cart-float:hover{transform:scale(1.08);box-shadow:0 12px 28px rgba(46,180,168,0.4);}
-        .cart-float:active{transform:scale(0.95);}
+        .cart-float:active{cursor:grabbing;}
+        .cart-float.dragging{transition:none;transform:scale(1.12);box-shadow:0 12px 32px rgba(46,180,168,0.55);z-index:999;}
         .cart-badge{
             position:absolute;top:-2px;right:-2px;
             background:var(--danger);color:#fff;
@@ -332,7 +333,7 @@
 <input class="search-box" placeholder="搜索物品关键词" id="searchInput" oninput="doSearch()">
 <div class="category-scroll" id="catScroll"></div>
 <div class="goods-list" id="goodsList"></div>
-<button class="cart-float" onclick="openCartModal()">
+<button class="cart-float" id="cartFloatBtn">
     📋
     <span class="cart-badge" id="cartBadge">0</span>
 </button>
@@ -514,6 +515,101 @@ function openMyOrder(){
     my.forEach(o=>{str+=`\n记录编号：${o.orderNo} ${o.status==='pending'?'【待处理】':'【已处理】'}\n`;o.items.forEach(it=>str+=`${it.goodsName} ×${it.qty} ${it.sub}\n`);str+=`合计：${o.total} 时间：${o.createTime}\n`;});
     alert(str);
 }
+
+// ===== 浮动按钮拖动功能 =====
+(function(){
+    const btn = document.getElementById("cartFloatBtn");
+    const BTN_SIZE = 56;
+    let isDragging = false;
+    let hasMoved = false;
+    let startX = 0, startY = 0;
+    let offsetX = 0, offsetY = 0;
+
+    // 恢复保存的位置
+    const savedPos = localStorage.getItem("cart_float_pos");
+    if(savedPos){
+        try{
+            const pos = JSON.parse(savedPos);
+            btn.style.left = pos.x + "px";
+            btn.style.top = pos.y + "px";
+            btn.style.right = "auto";
+            btn.style.bottom = "auto";
+        }catch(e){}
+    }
+
+    function getPoint(e){
+        return e.touches ? e.touches[0] : e;
+    }
+
+    function onStart(e){
+        const p = getPoint(e);
+        const rect = btn.getBoundingClientRect();
+        startX = p.clientX;
+        startY = p.clientY;
+        offsetX = p.clientX - rect.left;
+        offsetY = p.clientY - rect.top;
+        isDragging = true;
+        hasMoved = false;
+        btn.classList.add("dragging");
+        e.preventDefault();
+    }
+
+    function onMove(e){
+        if(!isDragging) return;
+        const p = getPoint(e);
+        const dx = p.clientX - startX;
+        const dy = p.clientY - startY;
+        if(Math.abs(dx) > 5 || Math.abs(dy) > 5){
+            hasMoved = true;
+        }
+        if(hasMoved){
+            let x = p.clientX - offsetX;
+            let y = p.clientY - offsetY;
+            x = Math.max(4, Math.min(window.innerWidth - BTN_SIZE - 4, x));
+            y = Math.max(4, Math.min(window.innerHeight - BTN_SIZE - 4, y));
+            btn.style.left = x + "px";
+            btn.style.top = y + "px";
+            btn.style.right = "auto";
+            btn.style.bottom = "auto";
+            e.preventDefault();
+        }
+    }
+
+    function onEnd(e){
+        if(!isDragging) return;
+        isDragging = false;
+        btn.classList.remove("dragging");
+        if(hasMoved){
+            // 拖动结束，保存位置
+            const rect = btn.getBoundingClientRect();
+            localStorage.setItem("cart_float_pos", JSON.stringify({
+                x: rect.left,
+                y: rect.top
+            }));
+        }else{
+            // 点击，打开购物车
+            openCartModal();
+        }
+    }
+
+    btn.addEventListener("mousedown", onStart);
+    btn.addEventListener("touchstart", onStart, {passive:false});
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("touchmove", onMove, {passive:false});
+    document.addEventListener("mouseup", onEnd);
+    document.addEventListener("touchend", onEnd);
+
+    // 窗口大小变化时，确保按钮在可视范围内
+    window.addEventListener("resize", function(){
+        const rect = btn.getBoundingClientRect();
+        let x = rect.left, y = rect.top;
+        x = Math.max(4, Math.min(window.innerWidth - BTN_SIZE - 4, x));
+        y = Math.max(4, Math.min(window.innerHeight - BTN_SIZE - 4, y));
+        btn.style.left = x + "px";
+        btn.style.top = y + "px";
+    });
+})();
+
 renderCats();renderGoods();renderBulletin();
 </script>
 </body>
