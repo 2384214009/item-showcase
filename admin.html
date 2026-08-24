@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, autocorrect=off, autocapitalize=off">
+    <title>物品管理后台</title>
+    <style>
+        * {margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system;}
+        :root{--primary:#2EB4A8;--bg:#f8fcfc;--text:#2d3436;--danger:#e74c3c;--warn:#f39c12;--ok:#27ae60;}
+        body{background:var(--bg);padding:14px;min-height:100vh;max-width:480px;margin:0 auto;}
+        .login-box{max-width:440px;margin:30px auto;background:#fff;padding:22px;border-radius:12px;box-shadow:0 2px 10px #e0efef;}
+        .admin-wrap{display:none;}
+        h2{color:var(--primary);text-align:center;margin-bottom:18px;font-size:20px;}
+        h3{font-size:16px;margin-bottom:10px;color:#333;}
+        .tab{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;}
+        .tab-btn{flex:1 1 95px;padding:10px 6px;border:none;border-radius:8px;background:#eeeeee;font-size:13px;min-width:90px;}
+        .tab-btn.active{background:var(--primary);color:#fff;}
+        .panel{display:none;background:#fff;padding:16px;border-radius:12px;margin-bottom:14px;}
+        .panel.show{display:block;}
+        input,textarea,select{width:100%;padding:11px 12px;margin:8px 0;border:1px solid #ddd;border-radius:9px;font-size:15px;}
+        button{padding:10px 12px;border:none;border-radius:8px;margin:4px 2px;font-size:14px;}
+        .primary{background:var(--primary);color:#fff;}
+        .danger{background:var(--danger);color:#fff;}
+        .warning{background:var(--warn);color:#fff;}
+        .ok{background:var(--ok);color:#fff;}
+        .goods-item{padding:12px 0;border-bottom:1px solid #eee;}
+        .preview-img{width:120px;margin:10px 0;display:none;border-radius:6px;}
+        .badge{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;color:#fff;margin:0 4px;}
+        .badge-pending{background:var(--warn);}
+        .badge-done{background:var(--ok);}
+        .badge-sellout{background:var(--danger);}
+        .badge-sale{background:var(--ok);}
+        .order-item{padding:12px 0;border-bottom:1px solid #eee;}
+        .check-row{display:flex;align-items:center;gap:8px;margin:8px 0 12px 0;}
+        .small-tip{font-size:12px;color:#777;margin:4px 0;}
+    </style>
+</head>
+<body>
+    <div class="login-box" id="loginWrap">
+        <h2>管理员登录</h2>
+        <input placeholder="管理员账号" id="inpUser" autocapitalize="off" autocomplete="off">
+        <input placeholder="管理员密码" type="password" id="inpPwd" autocapitalize="off" autocomplete="off">
+        <div class="check-row">
+            <input type="checkbox" id="rememberCheck">
+            <label for="rememberCheck">在本设备保存账号密码</label>
+        </div>
+        <button class="primary" style="width:100%" onclick="doLogin()">登录后台</button>
+    </div>
+    <div class="admin-wrap" id="adminWrap">
+        <h2>物品管理后台</h2>
+        <div class="tab">
+            <button class="tab-btn active" onclick="switchTab('catManage')">分类管理</button>
+            <button class="tab-btn" onclick="switchTab('addGoods')">新增物品</button>
+            <button class="tab-btn" onclick="switchTab('goodsList')">物品列表</button>
+            <button class="tab-btn" onclick="switchTab('order')">提交记录</button>
+            <button class="tab-btn" onclick="switchTab('bulletinTab')">公告管理</button>
+            <button class="tab-btn" onclick="switchTab('setting')">账号设置</button>
+            <button class="tab-btn super-only" onclick="switchTab('adminManage')" style="display:none;">管理员管理</button>
+        </div>
+        <div class="panel show" id="catManage">
+            <h3>新增物品分类</h3>
+            <input placeholder="分类名称" id="catName">
+            <button class="primary" onclick="addCat()">添加分类</button>
+            <div id="catWrap"></div>
+        </div>
+        <div class="panel" id="addGoods">
+            <h3>添加 / 编辑物品</h3>
+            <input placeholder="物品名称" id="gName">
+            <input placeholder="编号（数字）" id="gPrice">
+            <select id="gCat"></select>
+            <textarea placeholder="物品简介描述" id="gDesc"></textarea>
+            <input type="file" accept="image/*" id="imgUpload">
+            <div class="small-tip">选择本地图片作为封面</div>
+            <img class="preview-img" id="imgPreview">
+            <div class="check-row">
+                <input type="checkbox" id="isSelloutEdit">
+                <label for="isSelloutEdit">标记无库存</label>
+            </div>
+            <button class="primary" onclick="saveGoods()">保存物品</button>
+        </div>
+        <div class="panel" id="goodsList">
+            <h3>全部物品</h3>
+            <div id="goodsWrap"></div>
+        </div>
+        <div class="panel" id="order">
+            <h3>用户提交记录 <span id="orderBadge"></span></h3>
+            <div id="orderWrap"></div>
+        </div>
+        <div class="panel" id="bulletinTab">
+            <h3>滚动公告弹幕管理</h3>
+            <input placeholder="输入公告内容" id="bulletinContent">
+            <div class="check-row">
+                <input type="checkbox" id="bulletinEnable">
+                <label for="bulletinEnable">启用这条公告</label>
+            </div>
+            <button class="primary" onclick="addBulletin()">新增公告</button>
+            <div id="bulletinWrap"></div>
+        </div>
+        <div class="panel" id="setting">
+            <h3>当前账号：<span id="curAdminName"></span></h3>
+            <h4 style="margin:10px 0 6px">修改登录密码</h4>
+            <input placeholder="原密码" type="password" id="oldPwd">
+            <input placeholder="新密码(至少6位)" type="password" id="newPwd">
+            <input placeholder="确认新密码" type="password" id="confirmPwd">
+            <button class="primary" onclick="changePassword()">保存新密码</button>
+        </div>
+        <div class="panel" id="adminManage">
+            <h3>管理员列表</h3>
+            <div id="adminListWrap"></div>
+            <h4 style="margin:14px 0 6px">新增管理员</h4>
+            <input placeholder="新管理员账号" id="newAdminUser">
+            <input placeholder="初始密码(至少6位)" id="newAdminPwd">
+            <div class="check-row">
+                <input type="checkbox" id="newAdminSuper">
+                <label for="newAdminSuper">设为超级管理员</label>
+            </div>
+            <button class="primary" onclick="addNewAdmin()">新增管理员</button>
+        </div>
+        <button onclick="location.href='index.html'">返回前台展示页</button>
+        <button class="danger" onclick="logout()">退出登录</button>
+    </div>
+    <script>
+        let currentLoginUser = "";
+        let currentRole = "normal";
+        let editTargetId = null;
+        function getDb(){
+            const raw = localStorage.getItem("shop_db");
+            return raw ? JSON.parse(raw) : {
+                goods:[],orders:[],categories:[],
+                adminAccounts:[{username:"2384214009",pwd:"13727733582q",role:"super"},{username:"admin",pwd:"admin123",role:"normal"}],
+                bulletins:[]
+            };
+        }
+        function saveDb(db){localStorage.setItem("shop_db",JSON.stringify(db));}
+        function loadRemember(){
+            const rem = localStorage.getItem("admin_remember");
+            if(rem){try{const obj=JSON.parse(atob(rem));document.getElementById("inpUser").value=obj.u;document.getElementById("inpPwd").value=obj.p;document.getElementById("rememberCheck").checked=true;}catch(e){}}
+        }
+        loadRemember();
+        function doLogin(){
+            const u=document.getElementById("inpUser").value.trim().toLowerCase();
+            const p=document.getElementById("inpPwd").value.trim();
+            const db=getDb();
+            const findAdmin=db.adminAccounts.find(a=>a.username.toLowerCase()===u && a.pwd===p);
+            if(!findAdmin){alert("账号或者密码错误，请检查");return;}
+            currentLoginUser=findAdmin.username;
+            currentRole=findAdmin.role||"normal";
+            const ck=document.getElementById("rememberCheck").checked;
+            if(ck){localStorage.setItem("admin_remember",btoa(JSON.stringify({u,p})));}else{localStorage.removeItem("admin_remember");}
+            document.getElementById("loginWrap").style.display="none";
+            document.getElementById("adminWrap").style.display="block";
+            document.getElementById("curAdminName").innerText=currentLoginUser;
+            if(currentRole==="super"){document.querySelectorAll(".super-only").forEach(b=>b.style.display="");}
+            renderCatPanel();renderCatSelect();renderGoods();renderOrders();renderBulletins();renderAdminList();
+        }
+        function logout(){localStorage.removeItem("admin_remember");location.reload();}
+        function changePassword(){
+            const db=getDb();const admin=db.adminAccounts.find(a=>a.username===currentLoginUser);
+            const old=document.getElementById("oldPwd").value.trim();
+            const np=document.getElementById("newPwd").value.trim();
+            const cp=document.getElementById("confirmPwd").value.trim();
+            if(old!==admin.pwd){alert("原密码错误");return;}
+            if(np.length<6){alert("新密码至少6位");return;}
+            if(np!==cp){alert("两次输入新密码不一致");return;}
+            admin.pwd=np;saveDb(db);alert("密码修改成功，请重新登录");localStorage.removeItem("admin_remember");location.reload();
+        }
+        function addNewAdmin(){
+            if(currentRole!=="super"){alert("无权限");return;}
+            const db=getDb();
+            const nu=document.getElementById("newAdminUser").value.trim().toLowerCase();
+            const np=document.getElementById("newAdminPwd").value.trim();
+            const isSuper=document.getElementById("newAdminSuper").checked;
+            if(!nu||!np){alert("账号密码不能为空");return;}
+            if(np.length<6){alert("密码至少6位");return;}
+            const exist=db.adminAccounts.some(x=>x.username.toLowerCase()===nu);
+            if(exist){alert("该管理员账号已存在");return;}
+            db.adminAccounts.push({username:nu,pwd:np,role:isSuper?"super":"normal"});
+            saveDb(db);alert("管理员新增完成");
+            document.getElementById("newAdminUser").value="";document.getElementById("newAdminPwd").value="";document.getElementById("newAdminSuper").checked=false;
+            renderAdminList();
+        }
+        function renderAdminList(){
+            if(currentRole!=="super")return;
+            const db=getDb();const wrap=document.getElementById("adminListWrap");
+            wrap.innerHTML="";
+            db.adminAccounts.forEach(a=>{
+                const isSelf=a.username===currentLoginUser;
+                wrap.innerHTML+=`
+                <div style="padding:8px 0;border-bottom:1px solid #eee;">
+                    <div><b>${a.username}</b> ${a.role==="super"?"<span class='badge badge-done'>超级管理员</span>":"<span class='badge badge-pending'>普通管理员</span>"}</div>
+                    ${!isSelf?`<button class="danger" onclick="delAdmin('${a.username}')">删除</button>`:"<span class='small-tip'>当前账号</span>"}
+                </div>`;
+            });
+        }
+        window.delAdmin=function(username){
+            if(currentRole!=="super"){alert("无权限");return;}
+            if(!confirm("确定删除该管理员？"))return;
+            const db=getDb();
+            const target=db.adminAccounts.find(a=>a.username===username);
+            if(target&&target.role==="super"){
+                const superCount=db.adminAccounts.filter(a=>a.role==="super").length;
+                if(superCount<=1){alert("至少保留一个超级管理员");return;}
+            }
+            db.adminAccounts=db.adminAccounts.filter(a=>a.username!==username);
+            saveDb(db);renderAdminList();
+        }
+        function switchTab(tabId){
+            document.querySelectorAll(".panel").forEach(p=>p.classList.remove("show"));
+            document.getElementById(tabId).classList.add("show");
+            document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+            event.target.classList.add("active");
+        }
+        function addCat(){
+            const name=document.getElementById("catName").value.trim();
+            if(!name)return alert("请输入分类名称");
+            const db=getDb();db.categories.push({id:"cat_"+Date.now(),name});saveDb(db);
+            document.getElementById("catName").value="";renderCatPanel();renderCatSelect();
+        }
+        function delCat(cid){if(!confirm("确定删除该分类?"))return;const db=getDb();db.categories=db.categories.filter(x=>x.id!==cid);saveDb(db);renderCatPanel();renderCatSelect();}
+        function renderCatPanel(){
+            const db=getDb();const wrap=document.getElementById("catWrap");
+            wrap.innerHTML="<h4 style='margin-top:12px'>已有分类</h4>";
+            db.categories.forEach(c=>{wrap.innerHTML+=`<div style="padding:6px 0;border-bottom:1px solid #eee">${c.name} <button class="danger" onclick="delCat('${c.id}')">删除</button></div>`;});
+        }
+        function renderCatSelect(){
+            const db=getDb();const sel=document.getElementById("gCat");
+            sel.innerHTML=`<option value="">请选择分类</option>`;
+            db.categories.forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.name}</option>`);
+        }
+        document.getElementById("imgUpload").onchange=function(e){
+            const f=e.target.files[0];if(!f)return;
+            const r=new FileReader();
+            r.onload=ev=>{document.getElementById("imgPreview").src=ev.target.result;document.getElementById("imgPreview").style.display="block";};
+            r.readAsDataURL(f);
+        }
+        function saveGoods(){
+            const name=document.getElementById("gName").value.trim();
+            const price=document.getElementById("gPrice").value.trim();
+            const catId=document.getElementById("gCat").value;
+            const desc=document.getElementById("gDesc").value.trim();
+            const imgSrc=document.getElementById("imgPreview").src;
+            const sellout=document.getElementById("isSelloutEdit").checked;
+            if(!name||!price||!imgSrc||!catId){alert("名称、编号、分类、图片不能为空");return;}
+            const db=getDb();
+            if(editTargetId){
+                const idx=db.goods.findIndex(x=>x.id===editTargetId);
+                db.goods[idx]={id:editTargetId,name,price,catId,desc,img:imgSrc,sellout:sellout};
+                editTargetId=null;
+            }else{
+                db.goods.push({id:Date.now(),name,price,catId,desc,img:imgSrc,sellout:sellout});
+            }
+            saveDb(db);alert("保存成功");
+            document.getElementById("gName").value="";document.getElementById("gPrice").value="";document.getElementById("gCat").value="";
+            document.getElementById("gDesc").value="";document.getElementById("isSelloutEdit").checked=false;
+            document.getElementById("imgPreview").style.display="none";document.getElementById("imgUpload").value="";
+            renderGoods();
+        }
+        function renderGoods(){
+            const db=getDb();const wrap=document.getElementById("goodsWrap");wrap.innerHTML="";
+            db.goods.forEach(g=>{
+                const div=document.createElement("div");div.className="goods-item";
+                div.innerHTML=`
+                    <div><b>${g.name}</b>  No.${g.price}
+                    ${g.sellout?'<span class="badge badge-sellout">无库存</span>':'<span class="badge badge-sale">正常</span>'}
+                    </div>
+                    <div style="font-size:12px;color:#666;margin:4px 0">${g.desc}</div>
+                    <button onclick="editItem(${g.id})">编辑</button>
+                    <button class="${g.sellout?'ok':'warning'}" onclick="toggleSellout(${g.id})">${g.sellout?"恢复正常":"标记无库存"}</button>
+                    <button class="danger" onclick="delItem(${g.id})">删除</button>
+                `;
+                wrap.appendChild(div);
+            });
+        }
+        window.toggleSellout=function(gid){const db=getDb();const g=db.goods.find(x=>x.id===gid);g.sellout=!g.sellout;saveDb(db);renderGoods();}
+        window.editItem=function(id){
+            const db=getDb();const g=db.goods.find(x=>x.id===id);
+            editTargetId=id;
+            document.getElementById("gName").value=g.name;document.getElementById("gPrice").value=g.price;
+            document.getElementById("gCat").value=g.catId;document.getElementById("gDesc").value=g.desc;
+            document.getElementById("isSelloutEdit").checked=!!g.sellout;
+            document.getElementById("imgPreview").src=g.img;document.getElementById("imgPreview").style.display="block";
+            switchTab("addGoods");
+        }
+        window.delItem=function(id){if(!confirm("确认删除该物品吗？"))return;const db=getDb();db.goods=db.goods.filter(x=>x.id!==id);saveDb(db);renderGoods();}
+        function renderOrders(){
+            const db=getDb();const wrap=document.getElementById("orderWrap");wrap.innerHTML="";
+            const pendingCount=db.orders.filter(o=>o.status==="pending").length;
+            document.getElementById("orderBadge").innerText=pendingCount>0?`【待处理:${pendingCount}】`:"";
+            if(db.orders.length===0){wrap.innerHTML="<p>暂无提交记录</p>";return;}
+            db.orders.forEach(o=>{
+                let itemHtml="";o.items.forEach(it=>itemHtml+=`<div>• ${it.goodsName} ×${it.qty}  ${it.sub}</div>`);
+                wrap.innerHTML+=`
+                <div class="order-item">
+                    <div>记录编号：${o.orderNo} ${o.status==="pending"?'<span class="badge badge-pending">待处理</span>':'<span class="badge badge-done">已处理</span>'}</div>
+                    <div>客户设备ID：${o.deviceId.substring(0,12)}...</div>
+                    ${itemHtml}
+                    <div>合计：${o.total}</div>
+                    <div>姓名：${o.userName}｜电话：${o.userPhone}</div>
+                    <div>联系地址：${o.userAddr}</div>
+                    <div>备注：${o.note||"无"}</div>
+                    <div class="small-tip">提交时间：${o.createTime}</div>
+                    ${o.status==='pending'?`<button class="ok" onclick="setOrderDone('${o.orderNo}')">标记已处理</button>`:`<button class="warning" onclick="setOrderPending('${o.orderNo}')">恢复待处理</button>`}
+                </div>`;
+            });
+        }
+        window.setOrderDone=function(ordNo){const db=getDb();const o=db.orders.find(x=>x.orderNo===ordNo);o.status="done";saveDb(db);renderOrders();}
+        window.setOrderPending=function(ordNo){const db=getDb();const o=db.orders.find(x=>x.orderNo===ordNo);o.status="pending";saveDb(db);renderOrders();}
+        function addBulletin(){
+            const db=getDb();const content=document.getElementById("bulletinContent").value.trim();
+            const enable=document.getElementById("bulletinEnable").checked;
+            if(!content){alert("公告内容不能为空");return;}
+            db.bulletins.push({bid:"bul_"+Date.now(),content:content,enable:enable});
+            saveDb(db);alert("公告保存成功");
+            document.getElementById("bulletinContent").value="";document.getElementById("bulletinEnable").checked=false;
+            renderBulletins();
+        }
+        window.delBulletin=function(bid){if(!confirm("确定删除这条公告？"))return;const db=getDb();db.bulletins=db.bulletins.filter(b=>b.bid!==bid);saveDb(db);renderBulletins();}
+        window.toggleBulletinEnable=function(bid){const db=getDb();const b=db.bulletins.find(x=>x.bid===bid);b.enable=!b.enable;saveDb(db);renderBulletins();}
+        function renderBulletins(){
+            const db=getDb();const wrap=document.getElementById("bulletinWrap");
+            wrap.innerHTML="<h4 style='margin-top:12px'>已创建公告列表</h4>";
+            if(db.bulletins.length===0){wrap.innerHTML+="<div class='small-tip'>暂无公告</div>";return;}
+            db.bulletins.forEach(b=>{
+                wrap.innerHTML+=`
+                <div style="padding:8px 0;border-bottom:1px solid #eee;">
+                    <div>${b.content} ${b.enable?"【已启用】":"【已关闭】"}</div>
+                    <button onclick="toggleBulletinEnable('${b.bid}')">${b.enable?"关闭公告":"启用公告"}</button>
+                    <button class="danger" onclick="delBulletin('${b.bid}')">删除</button>
+                </div>`;
+            });
+        }
+    </script>
+</body>
+</html>
